@@ -1,4 +1,4 @@
-# JARVIS (v0.2)
+# JARVIS (v0.3)
 
 A voice assistant: wakes up when you say "Jarvis", handles a few built-in
 commands, and asks Claude (an AI) for anything else.
@@ -54,6 +54,10 @@ what you say. Then it looks at the rest of what you said:
 - **"Jarvis, what's the date"** → tells you the date
 - **"Jarvis, open Safari"** (or Chrome, Notes, Calculator, any installed app)
   → opens it
+- **"Jarvis, open [something that's not an app]"** (e.g. "open my resume")
+  → if it's not an app, JARVIS searches your Desktop, Documents, and
+  Downloads folders for a matching file and opens the most recently
+  modified match
 - **"Jarvis, search the web for best pizza in Chicago"** (or "google ...")
   → opens your browser with that search
 - **"Jarvis, quit"** → says goodbye and exits
@@ -65,6 +69,9 @@ your next sentence as the command.
 
 ## Notes / things you can tweak
 
+- File search only looks in Desktop, Documents, and Downloads (a few folders
+  deep) to stay fast — edit `FILE_SEARCH_ROOTS` in `main.py` to add more
+  places (e.g. an iCloud Drive folder) if you keep files elsewhere.
 - `WAKE_WORD` and `VOICE` are set near the top of `main.py` — change `VOICE`
   to any name from `say -v '?'` in Terminal to hear other options. macOS also
   has higher-quality "Enhanced"/"Premium" voices you can download for free via

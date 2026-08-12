@@ -1,12 +1,16 @@
 """
-JARVIS v0.2
+JARVIS v0.3
 
 New in this version:
 - Wake word: JARVIS stays quiet until it hears "jarvis" in what you say
-- Real commands: time, date, opening apps, web search
+- Real commands: time, date, opening apps, opening files, web search
 - A nicer built-in voice
 - Anything it doesn't recognize gets sent to Claude (an AI) for a real answer,
   if you've set up an API key (see README.md) - otherwise it just says so.
+
+"open X" tries X as an app name first (e.g. "open safari"). If that fails,
+it searches your Desktop, Documents, and Downloads for a file matching X
+(e.g. "open my resume") and opens the best (most recent) match.
 
 How the loop works:
 1. Keep listening in short bursts, ignoring anything that doesn't contain "jarvis"
@@ -16,6 +20,7 @@ How the loop works:
    web search, quit)? If yes, do that. If not, ask Claude and speak its answer.
 """
 
+import os
 import re
 import subprocess
 import webbrowser
@@ -38,6 +43,17 @@ except Exception:
 WAKE_WORD = "jarvis"
 VOICE = "Samantha"      # run `say -v '?'` to see all voices installed on your Mac
 RATE = 185               # words per minute
+
+# Folders to search when "open X" doesn't match an installed app - so it
+# falls back to looking for a file named X. Add more paths here (e.g. iCloud
+# Drive) if you keep files elsewhere.
+FILE_SEARCH_ROOTS = [
+    os.path.expanduser("~/Desktop"),
+    os.path.expanduser("~/Documents"),
+    os.path.expanduser("~/Downloads"),
+]
+FILE_SEARCH_MAX_DEPTH = 3          # how many folders deep to look
+FILE_SEARCH_SKIP_DIRS = {".git", "node_modules", "venv", "__pycache__", "Library"}
 
 
 def speak(text):
@@ -103,17 +119,65 @@ def ask_llm(question):
         return f"I had trouble reaching my brain: {e}"
 
 
-def open_app(command):
-    """Handle things like 'open safari' or 'open chrome'."""
+def find_file(query):
+    """Search FILE_SEARCH_ROOTS for a file whose name contains every word in
+    query. Among matches, returns the most recently modified one (usually
+    what you meant), or None if nothing matched."""
+    query_words = query.lower().split()
+    matches = []
+
+    for root in FILE_SEARCH_ROOTS:
+        if not os.path.isdir(root):
+            continue
+        root_depth = root.rstrip("/").count("/")
+        for dirpath, dirnames, filenames in os.walk(root):
+            # don't descend into noisy/irrelevant folders, or too deep
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in FILE_SEARCH_SKIP_DIRS and not d.startswith(".")
+            ]
+            depth = dirpath.rstrip("/").count("/") - root_depth
+            if depth >= FILE_SEARCH_MAX_DEPTH:
+                dirnames[:] = []
+
+            for name in filenames:
+                if name.startswith("."):
+                    continue
+                if all(word in name.lower() for word in query_words):
+                    matches.append(os.path.join(dirpath, name))
+
+    if not matches:
+        return None
+    matches.sort(key=os.path.getmtime, reverse=True)  # most recent first
+    return matches[0]
+
+
+def open_target(command):
+    """Handle 'open X' - tries X as an app name first, then falls back to
+    searching your files for something matching X (e.g. 'open my resume')."""
     match = re.search(r"open (.+)", command)
     if not match:
         return False
-    app_name = match.group(1).strip()
-    result = subprocess.run(["open", "-a", app_name], capture_output=True, text=True)
+
+    target = match.group(1).strip()
+    # clean up common speech patterns: "open the notes app" -> "notes"
+    target_for_app = re.sub(r"^the\s+", "", target)
+    target_for_app = re.sub(r"\s+app$", "", target_for_app).strip()
+
+    result = subprocess.run(
+        ["open", "-a", target_for_app], capture_output=True, text=True
+    )
     if result.returncode == 0:
-        speak(f"Opening {app_name}.")
+        speak(f"Opening {target_for_app}.")
+        return True
+
+    # Not an app - search common folders for a matching file instead
+    found = find_file(target)
+    if found:
+        speak(f"Opening {os.path.basename(found)}.")
+        subprocess.run(["open", found])
     else:
-        speak(f"I couldn't find an app called {app_name}.")
+        speak(f"I couldn't find an app or file called {target}.")
     return True
 
 
@@ -145,7 +209,7 @@ def handle_command(command):
     # keyword checks below, so e.g. "open time machine" opens the app
     # instead of being mistaken for a time question.
     if command.startswith("open "):
-        if open_app(command):
+        if open_target(command):
             return True
 
     if command.startswith(("search the web for", "search for", "google ")):
