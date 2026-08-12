@@ -1,0 +1,6 @@
+{
+  "name": "jarvis-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser edition of JARVIS - static frontend + a Vercel serverless function that talks to Claude"
+}

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>JARVIS</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f14;
+    --panel: #121822;
+    --accent: #4fd1ff;
+    --text: #e6edf3;
+    --muted: #7d8b99;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% 0%, #142230 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 3rem;
+  }
+  h1 {
+    letter-spacing: 0.3em;
+    font-weight: 600;
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(79, 209, 255, 0.5);
+    margin-bottom: 0.25rem;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.9rem; text-align: center; }
+
+  #mic-btn {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: rgba(79, 209, 255, 0.08);
+    color: var(--accent);
+    font-size: 3rem;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.1s;
+    box-shadow: 0 0 0 0 rgba(79, 209, 255, 0.5);
+  }
+  #mic-btn.active {
+    animation: pulse 1.6s infinite;
+    background: rgba(79, 209, 255, 0.18);
+  }
+  #mic-btn:active { transform: scale(0.97); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(79, 209, 255, 0.45); }
+    70% { box-shadow: 0 0 0 22px rgba(79, 209, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79, 209, 255, 0); }
+  }
+
+  #status { margin: 1.25rem 0 1.5rem; color: var(--muted); min-height: 1.2em; }
+
+  #log {
+    width: 100%;
+    max-width: 560px;
+    background: var(--panel);
+    border: 1px solid #1e2a37;
+    border-radius: 12px;
+    padding: 1rem;
+    height: 320px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  #log p { margin: 0 0 0.5rem; }
+  .you { color: #9ae6b4; }
+  .jarvis { color: var(--accent); }
+  .sys { color: var(--muted); font-style: italic; }
+
+  .hint {
+    max-width: 560px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 1.25rem;
+    line-height: 1.5;
+  }
+  code { background: #1e2a37; padding: 0.1em 0.4em; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>JARVIS</h1>
+  <div class="subtitle">Browser edition &mdash; click the mic, then say "Jarvis" followed by what you need</div>
+
+  <button id="mic-btn">🎙️</button>
+  <div id="status">Click the mic to start</div>
+
+  <div id="log"></div>
+
+  <div class="hint">
+    Try: <code>Jarvis, what time is it</code> &middot;
+    <code>Jarvis, what's the date</code> &middot;
+    <code>Jarvis, search the web for pizza recipes</code> &middot;
+    <code>Jarvis, why is the sky blue</code><br/><br/>
+    Needs Chrome, Edge, or Safari (speech recognition isn't supported in Firefox).
+    This version can't open apps or files on your computer &mdash; browsers block
+    web pages from doing that for security reasons. Grab the full desktop
+    version from the <a href="https://github.com/vish-the-fish/jarvis" style="color:var(--accent)">GitHub repo</a> for that.
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
