@@ -97,26 +97,37 @@ def wait_for_wake_word():
             return after
 
 
-def ask_llm(question):
-    """Send anything JARVIS doesn't have a built-in command for to Claude."""
+def ask_llm(question, retries=1):
+    """Send anything JARVIS doesn't have a built-in command for to Claude.
+
+    Retries once on failure before giving up, since most failures here are
+    one-off network blips rather than something actually broken.
+    """
     if _client is None:
         return (
             "I don't have a brain connected yet. "
             "Add an Anthropic API key to the .env file to enable that - check the README."
         )
-    try:
-        response = _client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=200,
-            system=(
-                "You are JARVIS, a helpful voice assistant. Keep answers short and "
-                "conversational (1-3 sentences) since they'll be read aloud."
-            ),
-            messages=[{"role": "user", "content": question}],
-        )
-        return response.content[0].text
-    except Exception as e:
-        return f"I had trouble reaching my brain: {e}"
+
+    for attempt in range(retries + 1):
+        try:
+            response = _client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                system=(
+                    "You are JARVIS, a helpful voice assistant. Keep answers short and "
+                    "conversational (1-3 sentences) since they'll be read aloud."
+                ),
+                messages=[{"role": "user", "content": question}],
+            )
+            return response.content[0].text
+        except Exception as e:
+            # Print the real technical error to the terminal for debugging,
+            # but don't speak it out loud - it's often a long/garbled
+            # exception message that sounds like nonsense read aloud.
+            print(f"(LLM request failed on attempt {attempt + 1}: {e})")
+
+    return "I had trouble reaching my brain. Try asking again in a moment."
 
 
 def find_file(query):
