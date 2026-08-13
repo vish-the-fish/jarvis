@@ -109,6 +109,7 @@ def ask_llm(question, retries=1):
             "Add an Anthropic API key to the .env file to enable that - check the README."
         )
 
+    last_error_type = None
     for attempt in range(retries + 1):
         try:
             response = _client.messages.create(
@@ -122,12 +123,13 @@ def ask_llm(question, retries=1):
             )
             return response.content[0].text
         except Exception as e:
-            # Print the real technical error to the terminal for debugging,
-            # but don't speak it out loud - it's often a long/garbled
+            # Print the full technical error to the terminal for debugging,
+            # but don't speak all of it out loud - it's often a long/garbled
             # exception message that sounds like nonsense read aloud.
+            last_error_type = type(e).__name__
             print(f"(LLM request failed on attempt {attempt + 1}: {e})")
 
-    return "I had trouble reaching my brain. Try asking again in a moment."
+    return f"I had trouble reaching my brain. Error type: {last_error_type}."
 
 
 def find_file(query):
