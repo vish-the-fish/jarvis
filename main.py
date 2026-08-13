@@ -23,8 +23,13 @@ How the loop works:
 import os
 import re
 import subprocess
+import warnings
 import webbrowser
 from datetime import datetime
+
+# Cosmetic only: your Mac's older SSL library makes urllib3 print a version
+# warning on every run. Doesn't affect anything - just noisy - so silence it.
+warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
 
 import speech_recognition as sr
 
@@ -117,7 +122,11 @@ def ask_llm(question, retries=1):
                 max_tokens=200,
                 system=(
                     "You are JARVIS, a helpful voice assistant. Keep answers short and "
-                    "conversational (1-3 sentences) since they'll be read aloud."
+                    "conversational (1-3 sentences) since they'll be read aloud. "
+                    f"Today's real date is {datetime.now().strftime('%A, %B %d, %Y')} - "
+                    "use that for anything date/season/time-relative (e.g. what "
+                    "season it is, how long until a holiday, someone's age from a "
+                    "birth year). Don't guess or rely on assumptions about the date."
                 ),
                 messages=[{"role": "user", "content": question}],
             )
