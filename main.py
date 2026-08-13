@@ -71,16 +71,32 @@ def speak(text):
     subprocess.run(["say", "-v", VOICE, "-r", str(RATE), text])
 
 
+_recognizer = sr.Recognizer()  # shared across calls, so calibration below actually sticks
+_mic_calibrated = False
+
+
+def calibrate_microphone():
+    """Learn your room's background noise level once, up front, so every
+    listen_once() call afterward can skip this step. Doing this on every
+    single call (the old behavior) added ~0.5s of dead air each time - with
+    several exchanges per conversation, that added up to real, noticeable lag."""
+    global _mic_calibrated
+    with sr.Microphone() as source:
+        _recognizer.adjust_for_ambient_noise(source, duration=1)
+    _mic_calibrated = True
+
+
 def listen_once(prompt_label="listening"):
     """Record one phrase from the mic and return it as lowercase text, or None."""
-    recognizer = sr.Recognizer()
+    if not _mic_calibrated:
+        calibrate_microphone()
+
     with sr.Microphone() as source:
         print(f"\n({prompt_label}...)")
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-        audio = recognizer.listen(source)
+        audio = _recognizer.listen(source)
 
     try:
-        text = recognizer.recognize_google(audio)
+        text = _recognizer.recognize_google(audio)
         # Google's speech-to-text often tacks on trailing punctuation (e.g. a
         # period at the end of a sentence) which breaks exact-word matching
         # and app names below, so strip it off here, once, for everything downstream.
@@ -351,6 +367,8 @@ def handle_command(command):
 
 
 def main():
+    print("(calibrating microphone for background noise - stay quiet for a second...)")
+    calibrate_microphone()
     speak("Hello, I am JARVIS. Say my name whenever you need me.")
     while True:
         after_wake_word = wait_for_wake_word()
