@@ -1,4 +1,4 @@
-# JARVIS (v0.3)
+# JARVIS (v0.4)
 
 A voice assistant: wakes up when you say "Jarvis", handles a few built-in
 commands, and asks Claude (an AI) for anything else.
@@ -60,6 +60,12 @@ what you say. Then it looks at the rest of what you said:
   modified match
 - **"Jarvis, search the web for best pizza in Chicago"** (or "google ...")
   → opens your browser with that search
+- **"Jarvis, text Sid saying I'll be there in ten minutes"** → looks Sid up
+  in your Contacts app, reads the message back, and waits for you to say
+  "yes" before actually sending it via Messages/iMessage. Say just
+  "Jarvis, text Sid" (no message) and it'll ask what to say first.
+  A sent text can't be unsent, so it never sends without that spoken
+  confirmation step - if you say anything other than "yes", it cancels.
 - **"Jarvis, quit"** → says goodbye and exits
 - **Anything else** → gets sent to Claude, and it speaks back the answer
   (e.g. "Jarvis, why is the sky blue")
@@ -69,6 +75,12 @@ your next sentence as the command.
 
 ## Notes / things you can tweak
 
+- The first time you use "text", macOS will pop up permission dialogs asking
+  if Terminal (or python3) can control Contacts and Messages — click **OK**/
+  **Allow** on both, or texting won't work. (System Settings → Privacy &
+  Security → Automation, if you need to fix it after saying no.)
+- Texting needs iMessage set up on this Mac and only works for contacts who
+  have a phone number or email saved in Contacts.app.
 - File search only looks in Desktop, Documents, and Downloads (a few folders
   deep) to stay fast — edit `FILE_SEARCH_ROOTS` in `main.py` to add more
   places (e.g. an iCloud Drive folder) if you keep files elsewhere.

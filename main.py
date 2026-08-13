@@ -1,9 +1,9 @@
 """
-JARVIS v0.3
+JARVIS v0.4
 
 New in this version:
 - Wake word: JARVIS stays quiet until it hears "jarvis" in what you say
-- Real commands: time, date, opening apps, opening files, web search
+- Real commands: time, date, opening apps, opening files, web search, texting people
 - A nicer built-in voice
 - Anything it doesn't recognize gets sent to Claude (an AI) for a real answer,
   if you've set up an API key (see README.md) - otherwise it just says so.
@@ -11,6 +11,10 @@ New in this version:
 "open X" tries X as an app name first (e.g. "open safari"). If that fails,
 it searches your Desktop, Documents, and Downloads for a file matching X
 (e.g. "open my resume") and opens the best (most recent) match.
+
+"text NAME saying MESSAGE" looks NAME up in Contacts.app and sends MESSAGE
+via Messages.app - but always reads it back and waits for a spoken "yes"
+first, since a sent text can't be unsent.
 
 How the loop works:
 1. Keep listening in short bursts, ignoring anything that doesn't contain "jarvis"
@@ -203,6 +207,94 @@ def open_target(command):
     return True
 
 
+def run_applescript(script):
+    """Run an AppleScript command via macOS's `osascript`. Returns (success, output-or-error)."""
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if result.returncode != 0:
+        return False, result.stderr.strip()
+    return True, result.stdout.strip()
+
+
+def find_contact(name):
+    """Look up someone in Contacts.app by name. Returns (full_name, phone_or_email)
+    or (None, None) if nobody matched. Doesn't send anything - read-only."""
+    safe_name = name.replace('"', '\\"')
+    script = f'''
+    tell application "Contacts"
+        set matches to (every person whose name contains "{safe_name}")
+        if (count of matches) is 0 then return ""
+        set thePerson to item 1 of matches
+        set fullName to name of thePerson
+        try
+            return fullName & "|" & (value of item 1 of phones of thePerson)
+        end try
+        try
+            return fullName & "|" & (value of item 1 of emails of thePerson)
+        end try
+        return ""
+    end tell
+    '''
+    ok, output = run_applescript(script)
+    if not ok or not output or "|" not in output:
+        return None, None
+    full_name, target = output.split("|", 1)
+    return full_name, target
+
+
+def send_imessage(target, message):
+    """Actually send a text via Messages.app. This is the one function in
+    this file that reaches a real person - only call it after confirmation."""
+    safe_target = target.replace('"', '\\"')
+    safe_message = message.replace('"', '\\"')
+    script = f'''
+    tell application "Messages"
+        set targetService to 1st service whose service type = iMessage
+        set targetBuddy to buddy "{safe_target}" of targetService
+        send "{safe_message}" to targetBuddy
+    end tell
+    '''
+    return run_applescript(script)
+
+
+def handle_text_command(command):
+    """Handle 'text NAME saying MESSAGE' or 'text NAME' (then ask for the
+    message). Always reads the message back and waits for a spoken "yes"
+    before actually sending - texting a real person can't be undone, so
+    this is not optional."""
+    match = re.search(r"^(?:text|message) (.+?) (?:saying|that says|says) (.+)$", command)
+    if match:
+        name, message = match.group(1).strip(), match.group(2).strip()
+    else:
+        match = re.search(r"^(?:text|message) (.+)$", command)
+        if not match:
+            return False
+        name = match.group(1).strip()
+        speak(f"What would you like to say to {name}?")
+        message = listen_once("listening for your message")
+        if not message:
+            speak("I didn't catch that, so I'm cancelling.")
+            return True
+
+    full_name, target = find_contact(name)
+    if not target:
+        speak(f"I couldn't find {name} in your contacts.")
+        return True
+
+    speak(f"Text to {full_name}: {message}. Say yes to send it.")
+    confirmation = listen_once("waiting for confirmation")
+    if not confirmation or "yes" not in confirmation:
+        speak("Okay, I won't send that.")
+        return True
+
+    ok, err = send_imessage(target, message)
+    if ok:
+        speak(f"Sent to {full_name}.")
+    else:
+        print(f"(send_imessage failed: {err})")
+        speak(f"I couldn't send that. It may need iMessage set up for {full_name}.")
+    return True
+
+
 def web_search(command):
     """Handle things like 'search the web for pizza recipes' or 'google pizza recipes'."""
     match = re.search(r"(?:search the web for|search for|google) (.+)", command)
@@ -226,6 +318,10 @@ def handle_command(command):
     if command in ("quit", "exit", "stop", "goodbye"):
         speak("Goodbye.")
         return False
+
+    if command.startswith(("text ", "message ")):
+        if handle_text_command(command):
+            return True
 
     # Check specific intents (open app / web search) before the looser
     # keyword checks below, so e.g. "open time machine" opens the app
